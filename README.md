@@ -56,14 +56,12 @@ Planned main screens:
 6. Filter and rank developers according to their relevance.
 7. Inspect the evidence behind each result.
 
-## 🛠️ Planned Technology Stack
+## 🛠️ Technology Stack
 
-The final stack may be adjusted during implementation.
-
-- **Frontend:** Next.js and TypeScript
-- **Backend:** Next.js server-side routes or equivalent API endpoints
-- **Database:** PostgreSQL
-- **ORM:** Prisma
+- **Frontend:** Next.js 15 (App Router) + TypeScript
+- **Styling:** Tailwind CSS v4
+- **Database:** PostgreSQL (planned)
+- **ORM:** Prisma (planned)
 - **Data source:** GitHub REST API
 - **UI:** GitHub-inspired design system
 
@@ -81,16 +79,22 @@ The application should use caching and controlled API requests to reduce unneces
 
 ## 🚀 Getting Started
 
-Setup instructions will be added once the initial implementation and repository structure are established.
+```bash
+# Install dependencies
+npm install
 
-The expected setup will include:
+# Run development server
+npm run dev
+```
 
-1. Cloning the repository.
-2. Installing project dependencies.
-3. Configuring environment variables.
-4. Setting up the PostgreSQL database.
-5. Running database migrations.
-6. Starting the development server.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### Available Scripts
+
+- `npm run dev` — Start development server (Turbopack)
+- `npm run build` — Production build
+- `npm run start` — Start production server
+- `npm run lint` — Run ESLint
 
 ## 🗺️ Roadmap
 
