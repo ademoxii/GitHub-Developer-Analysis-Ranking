@@ -37,6 +37,17 @@ ShellScope can help Shellmates members:
 
 ## 🖥️ Interface
 
+### Implemented frontend
+
+The home page now includes the two ShellScope screens from the supplied designs:
+
+- **Inputs:** GitHub usernames/profile URLs, CSV import, duplicate and syntax validation, project criteria, and the run action.
+- **Results:** ranked candidates, search, CSV/JSON downloads, and a comparison dialog for two or three candidates. Use the header steps to return to the form without losing your inputs.
+
+This is a frontend preview with the five sample profiles from the design, not a live GitHub integration. Repository, star, and activity filters apply to the sample dataset; match scores and scoring weights are fixed design values. Other usernames are reported as unavailable rather than given invented statistics. CSV uploads accept usernames or profile URLs separated by newlines or commas, with an optional single-column `username` or `profile_url` header (maximum 1 MB).
+
+The supplied React app is integrated at `src/App.tsx`, its data and import/export helpers are in `src/lib/analysis.ts`, and the styles live in `src/app/globals.css`. Next.js mounts the app through `src/app/page.tsx` and `src/app/layout.tsx`, so a separate ReactDOM `main.tsx` entry point is not needed. The layout adapts to mobile, and the results table scrolls horizontally on narrow screens.
+
 The application follows a minimal, GitHub-inspired design with clean tables, subtle borders, compact statistics, and a simple navigation system.
 
 Planned main screens:
