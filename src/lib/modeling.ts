@@ -1,3 +1,5 @@
+import type { Criteria } from "./analysis";
+
 export type Candidate = {
   username: string;
   source: string;
@@ -15,34 +17,26 @@ export type CandidateParseResult = {
   issues: ValidationIssue[];
 };
 
-export type CriterionWeights = Record<string, number>;
-
-// This contains placeholder values, change it to actual project filters
-export type ProjectFilters = {
-  languages?: string[];
-  minStars?: number;
-  minForks?: number;
-  updatedWithinDays?: number;
-};
-
-export type ProjectCriteria = {
-  weights: CriterionWeights;
-  filters: ProjectFilters;
-};
+export type ProjectCriteria = Criteria;
 
 export type ProjectCriteriaResult = {
   criteria?: ProjectCriteria;
   issues: ValidationIssue[];
 };
 
-const USERNAME_PATTERN = /^(?!-)(?!.*--)[a-z\d-]{1,39}(?<!-)$/i;
+const USERNAME_PATTERN = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
 const GITHUB_HOSTS = new Set(["github.com", "www.github.com"]);
-const DEFAULT_CRITERIA_KEYS = new Set([
-  "languages",
-  "minStars",
-  "minForks",
-  "updatedWithinDays",
+const USERNAME_HEADERS = new Set([
+  "username",
+  "githubusername",
+  "url",
+  "githuburl",
 ]);
+const CRITERIA_NUMBER_FIELDS = [
+  "minimumRepositories",
+  "minimumStars",
+  "recentDays",
+] as const;
 
 function parseCsvRow(row: string): string[] {
   const values: string[] = [];
@@ -76,20 +70,22 @@ function parseCsvRow(row: string): string[] {
 }
 
 function extractUsername(value: string): string | undefined {
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(/^@/, "");
   if (USERNAME_PATTERN.test(trimmed)) {
-    return trimmed;
+    return trimmed.toLowerCase();
   }
 
   try {
-    const url = new URL(trimmed);
+    const url = new URL(
+      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+    );
     if (!GITHUB_HOSTS.has(url.hostname.toLowerCase())) {
       return undefined;
     }
 
     const segments = url.pathname.split("/").filter(Boolean);
     return segments.length === 1 && USERNAME_PATTERN.test(segments[0])
-      ? segments[0]
+      ? segments[0].toLowerCase()
       : undefined;
   } catch {
     return undefined;
@@ -110,14 +106,10 @@ export function parseCandidatesCsv(csv: string): CandidateParseResult {
 
   if (firstRowIndex >= 0) {
     try {
-      const parsedHeaders = parseCsvRow(rows[firstRowIndex] ?? "").map((header) =>
-        header.toLowerCase().replace(/[\s_-]/g, ""),
+      const parsedHeaders = parseCsvRow(rows[firstRowIndex] ?? "").map(
+        (header) => header.toLowerCase().replace(/[\s_-]/g, ""),
       );
-      if (
-        parsedHeaders.some((header) =>
-          ["username", "githubusername", "url", "githuburl"].includes(header),
-        )
-      ) {
+      if (parsedHeaders.some((header) => USERNAME_HEADERS.has(header))) {
         headers = parsedHeaders;
       }
     } catch (error) {
@@ -147,11 +139,9 @@ export function parseCandidatesCsv(csv: string): CandidateParseResult {
     const source =
       headers === undefined
         ? (fields[0] ?? "")
-        : fields[
-            headers.findIndex((header) =>
-              ["username", "githubusername", "url", "githuburl"].includes(header),
-            )
-          ] ?? "";
+        : (fields[
+            headers.findIndex((header) => USERNAME_HEADERS.has(header))
+          ] ?? "");
     const username = validateGitHubUsername(source);
 
     if (username === undefined) {
@@ -188,6 +178,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && item.trim() !== "")
+  );
+}
+
 function validateNonNegativeNumber(
   value: unknown,
   field: string,
@@ -221,56 +218,41 @@ export function parseProjectCriteria(input: unknown): ProjectCriteriaResult {
   }
 
   const issues: ValidationIssue[] = [];
-  const weightsInput = value.weights ?? {};
-  if (!isRecord(weightsInput)) {
-    issues.push({ field: "weights", message: "Expected an object", value: weightsInput });
-  }
-
-  const weights: CriterionWeights = {};
-  if (isRecord(weightsInput)) {
-    Object.entries(weightsInput).forEach(([name, weight]) => {
-      if (validateNonNegativeNumber(weight, `weights.${name}`, issues)) {
-        weights[name] = weight;
-      }
+  const name = value.name;
+  if (typeof name !== "string" || name.trim() === "") {
+    issues.push({
+      field: "name",
+      message: "Expected a non-empty string",
+      value: name,
     });
   }
 
-  const filtersInput = value.filters ?? {};
-  if (!isRecord(filtersInput)) {
-    issues.push({ field: "filters", message: "Expected an object", value: filtersInput });
-  }
-
-  const filters: ProjectFilters = {};
-  if (isRecord(filtersInput)) {
-    const languages = filtersInput.languages;
-    if (languages !== undefined) {
-      if (
-        !Array.isArray(languages) ||
-        languages.some((language) => typeof language !== "string" || language.trim() === "")
-      ) {
-        issues.push({
-          field: "filters.languages",
-          message: "Expected an array of non-empty strings",
-          value: languages,
-        });
-      } else {
-        filters.languages = [...new Set(languages.map((language) => language.trim()))];
-      }
-    }
-
-    (["minStars", "minForks", "updatedWithinDays"] as const).forEach((field) => {
-      const fieldValue = filtersInput[field];
-      if (fieldValue !== undefined && validateNonNegativeNumber(fieldValue, `filters.${field}`, issues)) {
-        filters[field] = fieldValue;
-      }
+  const languages = value.languages;
+  if (!isNonEmptyStringArray(languages)) {
+    issues.push({
+      field: "languages",
+      message: "Expected an array of non-empty strings",
+      value: languages,
     });
-
-    Object.keys(filtersInput)
-      .filter((key) => !DEFAULT_CRITERIA_KEYS.has(key))
-      .forEach((key) => {
-        issues.push({ field: `filters.${key}`, message: "Unknown filter", value: filtersInput[key] });
-      });
   }
 
-  return issues.length > 0 ? { issues } : { criteria: { weights, filters }, issues: [] };
+  CRITERIA_NUMBER_FIELDS.forEach((field) => {
+    validateNonNegativeNumber(value[field], field, issues);
+  });
+
+  if (issues.length > 0) return { issues };
+
+  const normalizedLanguages = isNonEmptyStringArray(languages)
+    ? languages.map((language) => language.trim())
+    : [];
+  return {
+    criteria: {
+      name: (name as string).trim(),
+      languages: [...new Set(normalizedLanguages)],
+      minimumRepositories: value.minimumRepositories as number,
+      minimumStars: value.minimumStars as number,
+      recentDays: value.recentDays as number,
+    },
+    issues: [],
+  };
 }
