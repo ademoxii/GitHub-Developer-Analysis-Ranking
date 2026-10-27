@@ -15,10 +15,10 @@ import {
   importAccountsCsv,
   languageOptions,
   parseAccounts,
-  previewAnalysis,
   resultsCsv,
   stackColors,
   type Criteria,
+  type Developer,
 } from "@/lib/analysis";
 import { parseProjectCriteria } from "@/lib/modeling";
 
@@ -128,9 +128,13 @@ export default function App() {
   const [view, setView] = useState<"inputs" | "results">("inputs");
   const [input, setInput] = useState(defaultInput);
   const [criteria, setCriteria] = useState<Criteria>(defaultCriteria);
-  const [analysis, setAnalysis] = useState<
-    (ReturnType<typeof previewAnalysis> & { criteria: Criteria }) | null
-  >(null);
+  const [analysis, setAnalysis] = useState<{
+    developers: Developer[];
+    unavailable: string[];
+    criteria: Criteria;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState("");
@@ -157,9 +161,14 @@ export default function App() {
     );
   }
 
-  function analyze(event: FormEvent<HTMLFormElement>) {
+  async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!accounts.usernames.length || !criteria.name.trim() || uploading)
+    if (
+      !accounts.usernames.length ||
+      !criteria.name.trim() ||
+      uploading ||
+      loading
+    )
       return;
     const snapshot = {
       ...criteria,
@@ -168,13 +177,47 @@ export default function App() {
     };
     const parsedCriteria = parseProjectCriteria(snapshot);
     if (!parsedCriteria.criteria) return;
-    setAnalysis({
-      ...previewAnalysis(accounts.usernames, parsedCriteria.criteria),
-      criteria: parsedCriteria.criteria,
-    });
-    setSelected([]);
-    setSearch("");
-    navigate("results");
+
+    setLoading(true);
+    setApiError("");
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usernames: accounts.usernames,
+          criteria: parsedCriteria.criteria,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `Analysis failed (${res.status})`);
+      }
+
+      setAnalysis({
+        developers: data.developers,
+        unavailable: data.unavailable,
+        criteria: parsedCriteria.criteria,
+      });
+      setSelected([]);
+      setSearch("");
+      navigate("results");
+
+      if (data.errors?.length) {
+        setApiError(data.errors.join(" "));
+      }
+    } catch (err) {
+      setApiError(
+        err instanceof Error
+          ? err.message
+          : "Analysis failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function uploadCsv(event: ChangeEvent<HTMLInputElement>) {
@@ -508,13 +551,24 @@ export default function App() {
                   disabled={
                     !accounts.usernames.length ||
                     !criteria.name.trim() ||
-                    uploading
+                    uploading ||
+                    loading
                   }
                 >
                   <Icon name="arrow" />
-                  Run analysis
+                  {loading ? "Analyzing…" : "Run analysis"}
                 </button>
               </div>
+              {loading && (
+                <div className="loading-bar" role="status">
+                  <p>Fetching GitHub profiles and computing scores…</p>
+                </div>
+              )}
+              {apiError && !loading && view === "inputs" && (
+                <p className="error-message" role="alert" style={{ marginTop: 16 }}>
+                  {apiError}
+                </p>
+              )}
             </form>
           </>
         ) : (
@@ -674,7 +728,11 @@ export default function App() {
                           </td>
                           <td>
                             <div className="candidate">
-                              <span className="avatar" aria-hidden="true" />
+                              {developer.avatarUrl ? (
+                                <img className="avatar" src={developer.avatarUrl} alt="" />
+                              ) : (
+                                <span className="avatar" aria-hidden="true" />
+                              )}
                               <div>
                                 <a
                                   href={`https://github.com/${developer.username}`}
@@ -816,16 +874,17 @@ export default function App() {
                   ))}
                 </div>
                 <p className="preview-note">
-                  Sample profiles and scores from the design preview.
+                  Scores based on publicly available GitHub data.
                 </p>
               </dialog>
             </>
           )
         )}
-        <p className="preview-note">
-          Design preview · Sample profiles and fixed match scores. Live GitHub
-          analysis is not connected.
-        </p>
+        {apiError && view === "results" && (
+          <p className="error-message" role="alert" style={{ marginTop: 16 }}>
+            {apiError}
+          </p>
+        )}
       </main>
     </div>
   );
