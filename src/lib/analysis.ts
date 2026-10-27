@@ -4,6 +4,7 @@ export type Developer = {
   username: string;
   name: string;
   bio: string;
+  avatarUrl?: string;
   stars: number;
   stacks: string[];
   repositoryCount: number;
@@ -184,7 +185,9 @@ export function previewAnalysis(usernames: string[], criteria: Criteria) {
 }
 
 export function activityLabel(days: number) {
-  return days === 1 ? "Yesterday" : `${days} days ago`;
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
 }
 
 export function resultsCsv(developers: Developer[]) {
