@@ -122,6 +122,7 @@ input[type='checkbox'] { appearance: auto; width: 28px; height: 28px; margin: 0;
 input[type='checkbox']:disabled { cursor: not-allowed; opacity: .4; }
 .candidate { display: flex; align-items: center; gap: 20px; }
 .avatar { width: 68px; height: 68px; flex-shrink: 0; border: 2px solid var(--border); border-radius: 50%; background: white; }
+img.avatar { object-fit: cover; display: block; }
 .candidate a { font-weight: 600; }
 .candidate a:hover { color: var(--blue); text-decoration: underline; }
 .username { display: block; margin-top: 6px; font: 20px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--muted); }
@@ -138,6 +139,9 @@ meter::-moz-meter-bar { background: var(--green); }
 .empty-state h3 { font-size: 24px; color: var(--foreground); }
 .empty-state p { margin: 12px 0 24px; }
 .preview-note { margin: 28px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.loading-bar { margin-top: 24px; padding: 28px 36px; border: 2px solid var(--blue); border-radius: 16px; background: #f0f7ff; text-align: center; }
+.loading-bar p { margin: 0; color: var(--blue); font-size: 22px; font-weight: 600; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .unavailable-note { margin-top: 24px; color: var(--muted); overflow-wrap: anywhere; }
 .compare-dialog { width: min(1200px, calc(100% - 40px)); max-height: calc(100dvh / var(--site-scale) - 60px); margin: auto; padding: 32px; border: 1px solid var(--border); border-radius: 16px; color: var(--foreground); background: white; box-shadow: 0 24px 80px #0003; }
 .compare-dialog::backdrop { background: #1f232880; }
