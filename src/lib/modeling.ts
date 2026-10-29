@@ -62,10 +62,17 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   asm: "Assembly",
 };
 
-const FAMOUS_LANGUAGE_MAP = new Map<string, string>([
-  ...famousLanguages.map((lang) => [lang.toLowerCase(), lang] as const),
-  ...Object.entries(LANGUAGE_ALIASES),
-]);
+let famousLanguageMap: Map<string, string> | undefined;
+
+function getFamousLanguageMap(): Map<string, string> {
+  if (!famousLanguageMap) {
+    famousLanguageMap = new Map<string, string>([
+      ...famousLanguages.map((lang) => [lang.toLowerCase(), lang] as const),
+      ...Object.entries(LANGUAGE_ALIASES),
+    ]);
+  }
+  return famousLanguageMap;
+}
 
 function parseCsvRow(row: string): string[] {
   const values: string[] = [];
@@ -218,7 +225,7 @@ export function validateLanguage(value: unknown): string | undefined {
   if (!isNonEmptyStringArray([value])) {
     return undefined;
   }
-  return FAMOUS_LANGUAGE_MAP.get((value as string).trim().toLowerCase());
+  return getFamousLanguageMap().get((value as string).trim().toLowerCase());
 }
 
 function validateNonNegativeNumber(

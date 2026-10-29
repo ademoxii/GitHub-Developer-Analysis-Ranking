@@ -144,6 +144,7 @@ export default function App() {
     useState<string[]>(languageOptions);
   const [customLanguage, setCustomLanguage] = useState("");
   const [languageError, setLanguageError] = useState("");
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const accounts = parseAccounts(input);
@@ -310,7 +311,14 @@ export default function App() {
         : [...current.languages, canonical],
     }));
     setCustomLanguage("");
+    setShowLanguageMenu(false);
   }
+
+  const filteredLanguageSuggestions = famousLanguages.filter(
+    (language) =>
+      !availableLanguages.includes(language) &&
+      language.toLowerCase().includes(customLanguage.trim().toLowerCase()),
+  );
 
   function toggleCandidate(username: string) {
     setSelected((current) =>
@@ -489,36 +497,80 @@ export default function App() {
                         Add custom language
                       </label>
                       <div className="custom-language-row">
-                        <input
-                          id="custom-language"
-                          list="famous-languages"
-                          value={customLanguage}
-                          placeholder="e.g. JavaScript, C++, Java"
-                          maxLength={40}
-                          aria-describedby={
-                            languageError ? "custom-language-error" : undefined
-                          }
-                          onChange={(event) => {
-                            setCustomLanguage(event.target.value);
-                            if (languageError) setLanguageError("");
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              addCustomLanguage();
+                        <div
+                          className="language-combobox"
+                          onBlur={(event) => {
+                            if (
+                              !event.currentTarget.contains(
+                                event.relatedTarget as Node | null,
+                              )
+                            ) {
+                              setShowLanguageMenu(false);
                             }
                           }}
-                        />
-                        <datalist id="famous-languages">
-                          {famousLanguages
-                            .filter(
-                              (language) =>
-                                !availableLanguages.includes(language),
-                            )
-                            .map((language) => (
-                              <option key={language} value={language} />
-                            ))}
-                        </datalist>
+                        >
+                          <input
+                            id="custom-language"
+                            className="language-select-input"
+                            value={customLanguage}
+                            placeholder="e.g. JavaScript, C++, Java"
+                            maxLength={40}
+                            autoComplete="off"
+                            aria-expanded={
+                              showLanguageMenu &&
+                              filteredLanguageSuggestions.length > 0
+                            }
+                            aria-controls="famous-languages-menu"
+                            aria-describedby={
+                              languageError
+                                ? "custom-language-error"
+                                : undefined
+                            }
+                            onFocus={() => setShowLanguageMenu(true)}
+                            onClick={() => setShowLanguageMenu(true)}
+                            onChange={(event) => {
+                              setCustomLanguage(event.target.value);
+                              setShowLanguageMenu(true);
+                              if (languageError) setLanguageError("");
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                addCustomLanguage();
+                              } else if (event.key === "Escape") {
+                                setShowLanguageMenu(false);
+                              }
+                            }}
+                          />
+                          {showLanguageMenu &&
+                            filteredLanguageSuggestions.length > 0 && (
+                              <ul
+                                id="famous-languages-menu"
+                                className="language-select-menu"
+                                role="listbox"
+                                aria-label="Famous programming languages"
+                              >
+                                {filteredLanguageSuggestions.map((language) => (
+                                  <li key={language} role="option" aria-selected={customLanguage === language}>
+                                    <button
+                                      type="button"
+                                      className="language-select-option"
+                                      onMouseDown={(event) =>
+                                        event.preventDefault()
+                                      }
+                                      onClick={() => {
+                                        setCustomLanguage(language);
+                                        setLanguageError("");
+                                        setShowLanguageMenu(false);
+                                      }}
+                                    >
+                                      <Language name={language} />
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                        </div>
                         <button
                           type="button"
                           className="button"
