@@ -12,6 +12,7 @@ import {
   activityLabel,
   defaultCriteria,
   defaultInput,
+  famousLanguages,
   importAccountsCsv,
   languageOptions,
   parseAccounts,
@@ -20,7 +21,7 @@ import {
   type Criteria,
   type Developer,
 } from "@/lib/analysis";
-import { parseProjectCriteria } from "@/lib/modeling";
+import { parseProjectCriteria, validateLanguage } from "@/lib/modeling";
 
 type IconName =
   | "users"
@@ -139,6 +140,10 @@ export default function App() {
   const [selected, setSelected] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [availableLanguages, setAvailableLanguages] =
+    useState<string[]>(languageOptions);
+  const [customLanguage, setCustomLanguage] = useState("");
+  const [languageError, setLanguageError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const accounts = parseAccounts(input);
@@ -261,6 +266,50 @@ export default function App() {
         ? current.languages.filter((item) => item !== language)
         : [...current.languages, language],
     }));
+  }
+
+  function addCustomLanguage() {
+    setLanguageError("");
+    const trimmed = customLanguage.trim();
+    if (!trimmed) {
+      setLanguageError("Enter a language name to add.");
+      return;
+    }
+
+    const parsed = parseProjectCriteria({
+      ...criteria,
+      name: criteria.name.trim() || defaultCriteria.name,
+      minimumRepositories: Number.isFinite(criteria.minimumRepositories)
+        ? criteria.minimumRepositories
+        : defaultCriteria.minimumRepositories,
+      minimumStars: Number.isFinite(criteria.minimumStars)
+        ? criteria.minimumStars
+        : defaultCriteria.minimumStars,
+      languages: [...criteria.languages, trimmed],
+    });
+
+    const languageIssue = parsed.issues.find(
+      (issue) => issue.field === "languages",
+    );
+    const canonical = validateLanguage(trimmed);
+
+    if (languageIssue || !canonical) {
+      setLanguageError(
+        languageIssue?.message ?? "Enter a recognized programming language.",
+      );
+      return;
+    }
+
+    setAvailableLanguages((current) =>
+      current.includes(canonical) ? current : [...current, canonical],
+    );
+    setCriteria((current) => ({
+      ...current,
+      languages: current.languages.includes(canonical)
+        ? current.languages
+        : [...current.languages, canonical],
+    }));
+    setCustomLanguage("");
   }
 
   function toggleCandidate(username: string) {
@@ -423,7 +472,7 @@ export default function App() {
                   <fieldset className="field">
                     <legend className="field-label">Required languages</legend>
                     <div className="language-options">
-                      {languageOptions.map((language) => (
+                      {availableLanguages.map((language) => (
                         <button
                           key={language}
                           type="button"
@@ -434,6 +483,59 @@ export default function App() {
                           <Language name={language} />
                         </button>
                       ))}
+                    </div>
+                    <div className="custom-language-field">
+                      <label className="field-label" htmlFor="custom-language">
+                        Add custom language
+                      </label>
+                      <div className="custom-language-row">
+                        <input
+                          id="custom-language"
+                          list="famous-languages"
+                          value={customLanguage}
+                          placeholder="e.g. JavaScript, C++, Java"
+                          maxLength={40}
+                          aria-describedby={
+                            languageError ? "custom-language-error" : undefined
+                          }
+                          onChange={(event) => {
+                            setCustomLanguage(event.target.value);
+                            if (languageError) setLanguageError("");
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addCustomLanguage();
+                            }
+                          }}
+                        />
+                        <datalist id="famous-languages">
+                          {famousLanguages
+                            .filter(
+                              (language) =>
+                                !availableLanguages.includes(language),
+                            )
+                            .map((language) => (
+                              <option key={language} value={language} />
+                            ))}
+                        </datalist>
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={addCustomLanguage}
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {languageError && (
+                        <p
+                          id="custom-language-error"
+                          className="error-message"
+                          role="alert"
+                        >
+                          {languageError}
+                        </p>
+                      )}
                     </div>
                   </fieldset>
                   <div className="number-fields field">

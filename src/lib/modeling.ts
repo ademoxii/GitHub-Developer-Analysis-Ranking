@@ -1,4 +1,4 @@
-import type { Criteria } from "./analysis";
+import { famousLanguages, type Criteria } from "./analysis";
 
 export type Candidate = {
   username: string;
@@ -37,6 +37,35 @@ const CRITERIA_NUMBER_FIELDS = [
   "minimumStars",
   "recentDays",
 ] as const;
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "JavaScript",
+  ts: "TypeScript",
+  py: "Python",
+  golang: "Go",
+  cpp: "C++",
+  cplusplus: "C++",
+  csharp: "C#",
+  cs: "C#",
+  fsharp: "F#",
+  sh: "Shell",
+  bash: "Shell",
+  zsh: "Shell",
+  pwsh: "PowerShell",
+  ps1: "PowerShell",
+  objc: "Objective-C",
+  "objective c": "Objective-C",
+  objectivec: "Objective-C",
+  rb: "Ruby",
+  rs: "Rust",
+  kt: "Kotlin",
+  asm: "Assembly",
+};
+
+const FAMOUS_LANGUAGE_MAP = new Map<string, string>([
+  ...famousLanguages.map((lang) => [lang.toLowerCase(), lang] as const),
+  ...Object.entries(LANGUAGE_ALIASES),
+]);
 
 function parseCsvRow(row: string): string[] {
   const values: string[] = [];
@@ -185,6 +214,13 @@ function isNonEmptyStringArray(value: unknown): value is string[] {
   );
 }
 
+export function validateLanguage(value: unknown): string | undefined {
+  if (!isNonEmptyStringArray([value])) {
+    return undefined;
+  }
+  return FAMOUS_LANGUAGE_MAP.get((value as string).trim().toLowerCase());
+}
+
 function validateNonNegativeNumber(
   value: unknown,
   field: string,
@@ -234,6 +270,17 @@ export function parseProjectCriteria(input: unknown): ProjectCriteriaResult {
       message: "Expected an array of non-empty strings",
       value: languages,
     });
+  } else {
+    const invalidLanguages = languages.filter(
+      (language) => validateLanguage(language) === undefined,
+    );
+    if (invalidLanguages.length > 0) {
+      issues.push({
+        field: "languages",
+        message: `Unrecognized programming language: ${invalidLanguages.map((l) => l.trim()).join(", ")}. Enter a common language such as JavaScript, C++, Java, C#, PHP, Ruby, Swift, or Kotlin.`,
+        value: invalidLanguages,
+      });
+    }
   }
 
   CRITERIA_NUMBER_FIELDS.forEach((field) => {
@@ -243,7 +290,9 @@ export function parseProjectCriteria(input: unknown): ProjectCriteriaResult {
   if (issues.length > 0) return { issues };
 
   const normalizedLanguages = isNonEmptyStringArray(languages)
-    ? languages.map((language) => language.trim())
+    ? languages
+        .map((language) => validateLanguage(language))
+        .filter((language): language is string => language !== undefined)
     : [];
   return {
     criteria: {
